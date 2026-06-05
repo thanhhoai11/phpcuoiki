@@ -47,15 +47,15 @@ class Controller extends BaseController
 
     protected function requireLogin()
     {
-        if (!session()->has('user')) {
-            session(['redirect_after_login' => request()->fullUrl()]);
+        if (empty($_SESSION['user'])) {
+            $_SESSION['redirect_after_login'] = request()->fullUrl();
             $this->redirectToAction('auth', 'login');
         }
     }
 
     protected function currentUser()
     {
-        return session('user');
+        return $_SESSION['user'] ?? null;
     }
 }
 

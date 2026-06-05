@@ -35,6 +35,13 @@
 
                 <p class="mt-3 mb-0 text-muted small">
                     <i class="bi bi-people me-1"></i>Tối đa <?= $type['max_guests'] ?> khách
+                    <?php 
+                    $g = (int)$type['max_guests'];
+                    $a = (int)ceil($g / 2);
+                    $c = (int)floor($g / 2);
+                    if ($g === 2) { $a = 2; $c = 0; }
+                    ?>
+                    (<?= $a ?> người lớn, <?= $c ?> trẻ em)
                 </p>
             </div>
         </div>

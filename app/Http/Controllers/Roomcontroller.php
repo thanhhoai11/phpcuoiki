@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 class Roomcontroller extends Controller {
 
-    private \App\Models\Room $roomModel;
+    private \App\Models\Room   $roomModel;
+    private \App\Models\Review $reviewModel;
 
     public function __construct() {
-        $this->roomModel = new \App\Models\Room();
+        $this->roomModel   = new \App\Models\Room();
+        $this->reviewModel = new \App\Models\Review();
     }
 
     public function index(): void {
@@ -30,7 +32,9 @@ class Roomcontroller extends Controller {
         $typeId   = (int)($_GET['id'] ?? $_GET['type_id'] ?? 0);
         $checkIn  = trim($_GET['check_in']  ?? '');
         $checkOut = trim($_GET['check_out'] ?? '');
-        $people   = max(1, (int)($_GET['people'] ?? 1));
+        $adults   = max(1, (int)($_GET['adults'] ?? ($_GET['people'] ?? 1)));
+        $children = max(0, (int)($_GET['children'] ?? 0));
+        $people   = $adults + $children;
 
         $room = $this->roomModel->findTypeById($typeId);
 
@@ -49,6 +53,10 @@ class Roomcontroller extends Controller {
 
         $availableCount = count($allRoomsOfType) - count($bookedRoomIds);
 
+        // Lấy danh sách đánh giá & thông tin sao trung bình
+        $reviews = $this->reviewModel->findByRoomType($typeId);
+        $ratingData = $this->reviewModel->getAverageRating($typeId);
+
         $this->render('room/detail', [
             'room'           => $room,
             'allRoomsOfType' => $allRoomsOfType,
@@ -57,6 +65,11 @@ class Roomcontroller extends Controller {
             'checkIn'        => $checkIn,
             'checkOut'       => $checkOut,
             'people'         => $people,
+            'adults'         => $adults,
+            'children'       => $children,
+            'reviews'        => $reviews,
+            'avgRating'      => $ratingData['avg_rating'],
+            'countReviews'   => $ratingData['count_reviews'],
             'flash'          => $this->getFlash(),
         ]);
     }
@@ -67,7 +80,9 @@ class Roomcontroller extends Controller {
     public function search(): void {
         $checkIn  = trim($_GET['check_in']  ?? '');
         $checkOut = trim($_GET['check_out'] ?? '');
-        $people   = max(1, (int)($_GET['people'] ?? 1));
+        $adults   = max(1, (int)($_GET['adults'] ?? ($_GET['people'] ?? 1)));
+        $children = max(0, (int)($_GET['children'] ?? 0));
+        $people   = $adults + $children;
 
         $roomTypes    = [];
         $allAmenities = $this->roomModel->getAllAmenities();
@@ -76,7 +91,7 @@ class Roomcontroller extends Controller {
 
         if ($checkIn && $checkOut) {
             $searched  = true;
-            $roomTypes = $this->roomModel->searchAvailableGroupedByType($checkIn, $checkOut);
+            $roomTypes = $this->roomModel->searchAvailableGroupedByType($checkIn, $checkOut, $people);
             foreach ($roomTypes as $rt) {
                 $totalAvailable += count($rt['available_rooms']);
             }
@@ -88,6 +103,8 @@ class Roomcontroller extends Controller {
             'checkIn'        => $checkIn,
             'checkOut'       => $checkOut,
             'people'         => $people,
+            'adults'         => $adults,
+            'children'       => $children,
             'searched'       => $searched,
             'totalAvailable' => $totalAvailable,
             'flash'        => $this->getFlash(),

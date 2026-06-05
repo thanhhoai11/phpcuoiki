@@ -15,6 +15,8 @@ class BookingBuilder {
     public function setCheckIn(string $date): self       { $this->data['check_in']       = $date;   return $this; }
     public function setCheckOut(string $date): self      { $this->data['check_out']      = $date;   return $this; }
     public function setPeople(int $count): self          { $this->data['people']         = $count;  return $this; }
+    public function setAdults(int $count): self          { $this->data['adults']         = $count;  return $this; }
+    public function setChildren(int $count): self        { $this->data['children']       = $count;  return $this; }
     public function setRoomId(int $roomId): self         { $this->data['room_id']        = $roomId; return $this; }
     public function setPaymentMethod(string $m): self    { $this->data['payment_method'] = $m;      return $this; }
 
@@ -25,6 +27,13 @@ class BookingBuilder {
             if (empty($this->data[$field])) {
                 throw new \InvalidArgumentException("Thiếu trường bắt buộc: $field");
             }
+        }
+
+        if (!isset($this->data['adults'])) {
+            $this->data['adults'] = $this->data['people'] ?? 1;
+        }
+        if (!isset($this->data['children'])) {
+            $this->data['children'] = 0;
         }
 
         $ci = new \DateTime($this->data['check_in']);

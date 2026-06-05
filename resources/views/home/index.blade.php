@@ -226,7 +226,7 @@ body { font-family: 'Montserrat', sans-serif; background: var(--cream); }
                 <div class="row g-3 align-items-end">
 
                     <!-- Ngày nhận phòng -->
-                    <div class="col-12 col-sm-4">
+                    <div class="col-12 col-sm-3">
                         <label class="sf-label"><i class="bi bi-calendar3"></i>Ngày Nhận Phòng</label>
                         <input type="date" name="check_in" id="heroCheckIn"
                                class="sf-input"
@@ -237,7 +237,7 @@ body { font-family: 'Montserrat', sans-serif; background: var(--cream); }
                     </div>
 
                     <!-- Ngày trả phòng -->
-                    <div class="col-12 col-sm-4">
+                    <div class="col-12 col-sm-3">
                         <label class="sf-label"><i class="bi bi-calendar3"></i>Ngày Trả Phòng</label>
                         <input type="date" name="check_out" id="heroCheckOut"
                                class="sf-input"
@@ -247,15 +247,22 @@ body { font-family: 'Montserrat', sans-serif; background: var(--cream); }
                         </div>
                     </div>
 
-                    <!-- Số khách -->
-                    <div class="col-8 col-sm-2">
-                        <label class="sf-label"><i class="bi bi-people"></i>Số Khách</label>
-                        <input type="number" name="people" class="sf-input"
+                    <!-- Người lớn -->
+                    <div class="col-6 col-sm-2">
+                        <label class="sf-label"><i class="bi bi-person-fill"></i>Người lớn</label>
+                        <input type="number" name="adults" class="sf-input"
                                min="1" max="10" value="1">
                     </div>
 
+                    <!-- Trẻ em -->
+                    <div class="col-6 col-sm-2">
+                        <label class="sf-label"><i class="bi bi-person"></i>Trẻ em</label>
+                        <input type="number" name="children" class="sf-input"
+                               min="0" max="10" value="0">
+                    </div>
+
                     <!-- Nút tìm -->
-                    <div class="col-4 col-sm-2 d-grid">
+                    <div class="col-12 col-sm-2 d-grid">
                         <button type="submit" class="btn-find">
                             <i class="bi bi-search me-1"></i>Tìm
                         </button>
@@ -300,8 +307,43 @@ body { font-family: 'Montserrat', sans-serif; background: var(--cream); }
                          class="rc-img" alt="<?= htmlspecialchars($type['type_name']) ?>">
                     <div class="rc-body">
                         <div class="rc-name"><?= htmlspecialchars($type['type_name']) ?></div>
+                        
+                        <!-- Hiển thị sao đánh giá -->
+                        <div class="mb-2 d-flex align-items-center gap-1" style="font-size: 0.82rem;">
+                            <?php if ($type['count_reviews'] > 0): ?>
+                                <span class="text-warning">
+                                    <?php
+                                    $avg = (float)$type['avg_rating'];
+                                    $full = floor($avg);
+                                    $half = ($avg - $full) >= 0.5 ? 1 : 0;
+                                    for ($i = 0; $i < $full; $i++) echo '<i class="bi bi-star-fill"></i>';
+                                    if ($half) echo '<i class="bi bi-star-half"></i>';
+                                    for ($i = 0; $i < (5 - $full - $half); $i++) echo '<i class="bi bi-star"></i>';
+                                    ?>
+                                </span>
+                                <span class="fw-semibold text-dark ms-1"><?= number_format($avg, 1) ?></span>
+                                <span class="text-muted">(<?= $type['count_reviews'] ?>)</span>
+                            <?php else: ?>
+                                <span class="text-muted" style="letter-spacing: -1px;">
+                                    <i class="bi bi-star"></i>
+                                    <i class="bi bi-star"></i>
+                                    <i class="bi bi-star"></i>
+                                    <i class="bi bi-star"></i>
+                                    <i class="bi bi-star"></i>
+                                </span>
+                                <span class="text-muted small ms-1">(Chưa có đánh giá)</span>
+                            <?php endif; ?>
+                        </div>
+
                         <div class="rc-meta">
                             <i class="bi bi-people"></i>Tối đa: <?= $type['max_guests'] ?> người
+                            <?php 
+                            $g = (int)$type['max_guests'];
+                            $a = (int)ceil($g / 2);
+                            $c = (int)floor($g / 2);
+                            if ($g === 2) { $a = 2; $c = 0; }
+                            ?>
+                            (<?= $a ?> người lớn, <?= $c ?> trẻ em)
                         </div>
                         <div class="rc-meta">
                             <i class="bi bi-info-circle"></i>

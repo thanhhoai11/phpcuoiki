@@ -53,7 +53,15 @@ class Room {
     }
 
     public function allTypes(): array {
-        return DB::select('SELECT * FROM room_types ORDER BY price');
+        return DB::select(
+            'SELECT rt.*, 
+                    COALESCE(AVG(rev.rating), 0) AS avg_rating,
+                    COUNT(rev.id) AS count_reviews
+               FROM room_types rt
+          LEFT JOIN reviews rev ON rev.room_type_id = rt.id
+              GROUP BY rt.id
+              ORDER BY rt.price'
+        );
     }
 
     public function findTypeById(int $typeId): ?array {
@@ -169,8 +177,8 @@ class Room {
     public function searchAvailableGroupedByType(string $checkIn, string $checkOut, int $guests = 1): array {
         // 1. Lấy tất cả loại phòng thỏa mãn sức chứa
         $types = DB::select(
-            'SELECT * FROM room_types ORDER BY price',
-            []
+            'SELECT * FROM room_types WHERE max_guests >= ? ORDER BY price',
+            [$guests]
         );
 
         // 2. Lấy danh sách ID phòng đã bị đặt trong khoảng ngày này

@@ -23,16 +23,16 @@ class BookingService {
                 [$rid]
             );
             if (!$roomInfo) {
-                throw new \RuntimeException("Ph�ng ID $rid kh�ng t?n t?i.");
+                throw new \RuntimeException("Phòng ID $rid không tồn tại.");
             }
             $totalPrice += (float)$roomInfo['price'] * $data['nights'];
         }
 
         DB::statement('INSERT INTO bookings
                (user_id, customer_name, customer_email, customer_phone,
-                check_in, check_out, people, total_price, payment_method,
+                check_in, check_out, adult_count, child_count, total_price, payment_method,
                 payment_status, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "pending", "pending")',
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "pending", "pending")',
             [
                 $data['user_id']        ?? null,
                 $data['customer_name'],
@@ -40,7 +40,8 @@ class BookingService {
                 $data['customer_phone'],
                 $data['check_in'],
                 $data['check_out'],
-                $data['people'],
+                $data['adults'],
+                $data['children'],
                 $totalPrice,
                 null
             ]

@@ -57,17 +57,23 @@
                     <span class="badge bg-<?= $badge ?>"><?= $b['status'] ?></span>
                 </td>
                 <td>
-                    <?php if ($b['status'] === 'pending' && $b['payment_status'] !== 'paid'): ?>
                     <div class="d-flex gap-1">
-                        <a href="<?= BASE_URL ?>/?controller=booking&action=payment&id=<?= $b['id'] ?>"
-                           class="btn btn-sm btn-outline-success">Thanh toán</a>
-                        <form method="POST" action="<?= BASE_URL ?>/?controller=booking&action=cancel"
-                              onsubmit="return confirm('Huỷ đặt phòng này?')">
-                            <input type="hidden" name="booking_id" value="<?= $b['id'] ?>">
-                            <button class="btn btn-sm btn-outline-danger">Huỷ</button>
-                        </form>
+                        <?php if ($b['status'] === 'pending' && $b['payment_status'] !== 'paid'): ?>
+                            <a href="<?= BASE_URL ?>/?controller=booking&action=payment&id=<?= $b['id'] ?>"
+                               class="btn btn-sm btn-outline-success">Thanh toán</a>
+                            <form method="POST" action="<?= BASE_URL ?>/?controller=booking&action=cancel"
+                                   onsubmit="return confirm('Huỷ đặt phòng này?')">
+                                <input type="hidden" name="booking_id" value="<?= $b['id'] ?>">
+                                <button class="btn btn-sm btn-outline-danger">Huỷ</button>
+                            </form>
+                        <?php elseif ($b['status'] === 'confirmed' || $b['status'] === 'checked_in'): ?>
+                            <a href="<?= BASE_URL ?>/?controller=booking&action=checkout&id=<?= $b['id'] ?>"
+                               class="btn btn-sm btn-outline-info"
+                               onclick="return confirm('Bạn có chắc chắn muốn thực hiện check out mô phỏng (Lễ tân) cho đặt phòng này?')">
+                                <i class="bi bi-box-arrow-right me-1"></i>Check Out (Mô phỏng)
+                            </a>
+                        <?php endif; ?>
                     </div>
-                    <?php endif; ?>
                 </td>
             </tr>
             <?php endforeach; ?>

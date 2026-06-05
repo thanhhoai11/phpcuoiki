@@ -41,7 +41,16 @@ foreach ($rooms as $r) $totalMaxGuests += (int)$r['max_guests'];
                         <div>
                             <div class="fw-semibold">Phòng <?= htmlspecialchars($r['room_number']) ?></div>
                             <div class="text-muted small"><?= htmlspecialchars($r['type_name']) ?> · Tầng <?= $r['floor'] ?></div>
-                            <div class="text-muted small">Tối đa <?= $r['max_guests'] ?> khách</div>
+                            <div class="text-muted small">
+                                Tối đa <?= $r['max_guests'] ?> khách
+                                <?php 
+                                $g = (int)$r['max_guests'];
+                                $a = (int)ceil($g / 2);
+                                $c = (int)floor($g / 2);
+                                if ($g === 2) { $a = 2; $c = 0; }
+                                ?>
+                                (<?= $a ?> người lớn, <?= $c ?> trẻ em)
+                            </div>
                         </div>
                         <div class="text-primary fw-bold text-end" style="white-space:nowrap">
                             <?= number_format($r['price'], 0, ',', '.') ?><br>
@@ -108,9 +117,11 @@ foreach ($rooms as $r) $totalMaxGuests += (int)$r['max_guests'];
                         <label class="form-label fw-semibold">
                             Số Khách <span class="text-danger">*</span>
                         </label>
-                            <input type="hidden" name="people" value="<?= (int)($people ?? 1) ?>">
-                            <input type="number" class="form-control locked-input"
-                                value="<?= (int)($people ?? 1) ?>" disabled>
+                            <input type="hidden" name="people" id="peopleInput" value="<?= (int)($people ?? 1) ?>">
+                            <input type="hidden" name="adults" value="<?= (int)($adults ?? 1) ?>">
+                            <input type="hidden" name="children" value="<?= (int)($children ?? 0) ?>">
+                            <input type="text" class="form-control locked-input"
+                                value="<?= (int)($adults ?? 1) ?> người lớn, <?= (int)($children ?? 0) ?> trẻ em (tổng <?= (int)($people ?? 1) ?> khách)" disabled>
                         <div class="form-text">
                             <?php if (count($rooms) > 1): ?>
                             Tối đa <strong><?= $totalMaxGuests ?></strong> khách (tổng sức chứa <?= count($rooms) ?> phòng)
@@ -168,7 +179,7 @@ foreach ($rooms as $r) $totalMaxGuests += (int)$r['max_guests'];
                         <button type="submit" id="submitBtn" class="btn btn-primary flex-grow-1">
                             <i class="bi bi-calendar-check me-1"></i>Chọn phương thức thanh toán
                         </button>
-                        <a href="<?= BASE_URL ?>/?controller=room&action=search&check_in=<?= urlencode($checkIn ?? '') ?>&check_out=<?= urlencode($checkOut ?? '') ?>&people=<?= $people ?? 1 ?>"
+                        <a href="<?= BASE_URL ?>/?controller=room&action=search&check_in=<?= urlencode($checkIn ?? '') ?>&check_out=<?= urlencode($checkOut ?? '') ?>&adults=<?= $adults ?? 1 ?>&children=<?= $children ?? 0 ?>"
                            class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-left me-1"></i>Quay Lại
                         </a>

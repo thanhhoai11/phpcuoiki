@@ -327,9 +327,34 @@ ksort($byFloor);
 
         <h1 class="room-title"><?= htmlspecialchars($room['type_name']) ?></h1>
 
+        <?php if ($countReviews > 0): ?>
+        <div class="mb-3 d-flex align-items-center gap-2">
+            <div class="text-warning">
+                <?php
+                $fullStars = floor($avgRating);
+                $halfStar = ($avgRating - $fullStars) >= 0.5 ? 1 : 0;
+                $emptyStars = 5 - $fullStars - $halfStar;
+                for ($i = 0; $i < $fullStars; $i++) echo '<i class="bi bi-star-fill"></i>';
+                if ($halfStar) echo '<i class="bi bi-star-half"></i>';
+                for ($i = 0; $i < $emptyStars; $i++) echo '<i class="bi bi-star"></i>';
+                ?>
+            </div>
+            <span class="fw-semibold text-dark"><?= number_format($avgRating, 1) ?> / 5.0</span>
+            <span class="text-muted small">(<?= $countReviews ?> đánh giá)</span>
+        </div>
+        <?php endif; ?>
+
         <div class="info-line">
             <i class="bi bi-people-fill"></i>
-            <span><strong>Sức chứa tối đa:</strong> <?= $room['max_guests'] ?> người</span>
+            <span><strong>Sức chứa tối đa:</strong> <?= $room['max_guests'] ?> người
+                <?php 
+                $g = (int)$room['max_guests'];
+                $a = (int)ceil($g / 2);
+                $c = (int)floor($g / 2);
+                if ($g === 2) { $a = 2; $c = 0; }
+                ?>
+                (<?= $a ?> người lớn, <?= $c ?> trẻ em)
+            </span>
         </div>
         <div class="info-line">
             <i class="bi bi-currency-dollar"></i>
@@ -349,6 +374,83 @@ ksort($byFloor);
             </div>
             <?php endforeach; ?>
         </div>
+        <?php endif; ?>
+
+        <!-- Đánh giá từ khách hàng -->
+        <hr class="my-4" style="border-color: var(--border);">
+        <div class="block-heading" style="font-size: 1.25rem;">Đánh giá từ khách hàng</div>
+        
+        <?php if (empty($reviews)): ?>
+            <div class="p-4 text-center rounded-3 bg-white border border-light-subtle">
+                <i class="bi bi-chat-left-text text-muted fs-2 d-block mb-2"></i>
+                <p class="text-muted mb-0">Chưa có đánh giá nào cho loại phòng này.</p>
+            </div>
+        <?php else: ?>
+            <!-- Bảng tổng hợp điểm số -->
+            <div class="row align-items-center mb-4 p-3 rounded-4 bg-white border mx-0" style="border-color: var(--border) !important;">
+                <div class="col-md-4 text-center border-end py-2" style="border-color: var(--border) !important;">
+                    <div class="display-4 fw-bold text-dark font-monospace"><?= number_format($avgRating, 1) ?></div>
+                    <div class="text-warning mb-1">
+                        <?php
+                        for ($i = 0; $i < $fullStars; $i++) echo '<i class="bi bi-star-fill fs-5"></i>';
+                        if ($halfStar) echo '<i class="bi bi-star-half fs-5"></i>';
+                        for ($i = 0; $i < $emptyStars; $i++) echo '<i class="bi bi-star fs-5"></i>';
+                        ?>
+                    </div>
+                    <div class="text-muted small">Dựa trên <?= $countReviews ?> lượt đánh giá</div>
+                </div>
+                <div class="col-md-8 px-4 mt-3 mt-md-0">
+                    <?php
+                    $starsCount = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+                    foreach ($reviews as $rev) {
+                        $rVal = (int)$rev['rating'];
+                        if (isset($starsCount[$rVal])) $starsCount[$rVal]++;
+                    }
+                    for ($s = 5; $s >= 1; $s--):
+                        $pct = $countReviews > 0 ? ($starsCount[$s] / $countReviews) * 100 : 0;
+                    ?>
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="text-muted small" style="width: 50px;"><?= $s ?> sao</span>
+                        <div class="progress flex-grow-1 mx-2" style="height: 6px;">
+                            <div class="progress-bar bg-warning" role="progressbar" style="width: <?= $pct ?>%"></div>
+                        </div>
+                        <span class="text-muted small" style="width: 30px; text-align: right;"><?= $starsCount[$s] ?></span>
+                    </div>
+                    <?php endfor; ?>
+                </div>
+            </div>
+
+            <!-- Danh sách bình luận -->
+            <div class="review-list">
+                <?php foreach ($reviews as $rev): ?>
+                <div class="mb-3 p-3 rounded-3 bg-white border" style="border-color: var(--border) !important;">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Avatar chữ cái -->
+                            <div class="rounded-circle text-white d-flex align-items-center justify-content-center fw-bold small" 
+                                 style="width: 36px; height: 36px; background-color: var(--gold-dark);">
+                                <?= mb_strtoupper(mb_substr($rev['fullname'] ?? $rev['username'] ?? 'K', 0, 1)) ?>
+                            </div>
+                            <div>
+                                <div class="fw-semibold text-dark text-capitalize" style="font-size: 0.92rem;"><?= htmlspecialchars($rev['fullname'] ?? $rev['username']) ?></div>
+                                <div class="text-warning" style="font-size: 0.8rem;">
+                                    <?php
+                                    for ($i = 0; $i < (int)$rev['rating']; $i++) echo '<i class="bi bi-star-fill"></i>';
+                                    for ($i = 0; $i < (5 - (int)$rev['rating']); $i++) echo '<i class="bi bi-star"></i>';
+                                    ?>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="text-muted small"><?= date('d/m/Y', strtotime($rev['created_at'])) ?></span>
+                    </div>
+                    <?php if (!empty($rev['comment'])): ?>
+                        <p class="mb-0 text-secondary px-1" style="font-size: 0.9rem; line-height: 1.5; white-space: pre-line;"><?= htmlspecialchars($rev['comment']) ?></p>
+                    <?php else: ?>
+                        <p class="mb-0 text-muted px-1 fst-italic" style="font-size: 0.85rem;">Khách hàng không để lại bình luận.</p>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
         <?php endif; ?>
 
     </div>
@@ -382,14 +484,20 @@ ksort($byFloor);
                                    value="<?= htmlspecialchars($_GET['check_out'] ?? '') ?>">
                             <div class="date-error" id="errCheckOut"></div>
                         </div>
-                        <!-- Số khách -->
+                        <!-- Người lớn -->
                         <div class="col-6">
-                            <label class="f-label">Số Khách</label>
-                            <input type="number" id="bkPeople" class="f-input"
-                                   min="1" value="<?= $people ?>">
+                            <label class="f-label">Người lớn</label>
+                            <input type="number" id="bkAdults" class="f-input"
+                                   min="1" value="<?= $adults ?>">
                         </div>
-                        <!-- Thêm từ detail.php: ô Số đêm (thay cho "Phòng đã chọn") -->
+                        <!-- Trẻ em -->
                         <div class="col-6">
+                            <label class="f-label">Trẻ em</label>
+                            <input type="number" id="bkChildren" class="f-input"
+                                   min="0" value="<?= $children ?>">
+                        </div>
+                        <!-- Số đêm -->
+                        <div class="col-12">
                             <label class="f-label">Số Đêm</label>
                             <input type="text" id="bkNights" class="f-input"
                                    placeholder="–" readonly>
@@ -454,36 +562,35 @@ ksort($byFloor);
                         <div class="rs-legend-item">
                             <div class="rs-dot sel"></div><span>Đang chọn</span>
                         </div>
-                        <div class="rs-legend-item">
-                            <div class="rs-dot taken"></div><span>Đã đặt</span>
-                        </div>
                     </div>
 
                     <?php
                     $datesSelected = !empty($checkIn) && !empty($checkOut);
                     $byFloorDisplay = [];
-                    // Gom nhóm lại để hiển thị (không lọc bỏ phòng đã đặt để hiển thị trạng thái 'Đã đặt')
+                    // Chỉ gom nhóm các phòng còn trống (không lấy các phòng đã đặt)
                     foreach ($byFloor as $floor => $floorRooms) {
-                        $byFloorDisplay[$floor] = $floorRooms;
+                        $availableRooms = array_filter($floorRooms, function($r) use ($bookedRoomIds) {
+                            return !in_array($r['id'], $bookedRoomIds ?? []);
+                        });
+                        if (!empty($availableRooms)) {
+                            $byFloorDisplay[$floor] = $availableRooms;
+                        }
                     }
                     ?>
                     <?php if (empty($byFloorDisplay)): ?>
-                        <p class="rs-empty">Chưa có phòng nào cho loại này.</p>
+                        <p class="rs-empty">Không còn phòng trống nào cho loại này trong thời gian đã chọn.</p>
                     <?php else: ?>
                         <?php foreach ($byFloorDisplay as $floor => $floorRooms): ?>
                         <div class="floor-lbl">Tầng <?= $floor ?></div>
                         <div class="floor-rooms">
-                            <?php foreach ($floorRooms as $r):
-                                // Phòng bị coi là 'đã đặt' nếu nó nằm trong danh sách bookedRoomIds (khi đã chọn ngày)
-                                $taken = in_array($r['id'], $bookedRoomIds ?? []);
-                            ?>
+                            <?php foreach ($floorRooms as $r): ?>
                             <button type="button"
-                                    class="rm-btn <?= $taken ? 'taken' : '' ?>"
+                                    class="rm-btn"
                                     data-room-id="<?= $r['id'] ?>"
                                     data-room-number="<?= htmlspecialchars($r['room_number']) ?>"
-                                    <?= $taken ? 'disabled title="Phòng đã được đặt"' : 'onclick="toggleRoom(this)"' ?>>
+                                    onclick="toggleRoom(this)">
                                 <?= htmlspecialchars($r['room_number']) ?>
-                                <span class="rm-sub"><?= $taken ? 'Đã đặt' : 'Trống' ?></span>
+                                <span class="rm-sub">Trống</span>
                             </button>
                             <?php endforeach; ?>
                         </div>
@@ -533,6 +640,8 @@ ksort($byFloor);
     <input type="hidden" name="check_in"   id="formCheckIn"  value="">
     <input type="hidden" name="check_out"  id="formCheckOut" value="">
     <input type="hidden" name="people"     id="formPeople"   value="<?= $people ?>">
+    <input type="hidden" name="adults"     id="formAdults"   value="<?= $adults ?>">
+    <input type="hidden" name="children"   id="formChildren" value="<?= $children ?>">
     <div id="formRoomIds"></div>
 </form>
 
@@ -567,7 +676,8 @@ const IS_LOGGED_IN = <?= empty($_SESSION['user_id']) ? 'false' : 'true' ?>;
 const TODAY        = '<?= date('Y-m-d') ?>';
 const inEl         = document.getElementById('bkCheckIn');
 const outEl        = document.getElementById('bkCheckOut');
-const peopleInput  = document.getElementById('bkPeople');
+const adultsInput  = document.getElementById('bkAdults');
+const childrenInput = document.getElementById('bkChildren');
 
 let   ROOMS_NEEDED = <?= $roomsNeeded ?>;
 const MAX_GUESTS   = <?= $maxGuests ?>;
@@ -644,11 +754,13 @@ if (outEl) {
         calcNights();
 
         // Reload để server tính lại phòng trống
-        const people = peopleInput ? peopleInput.value : 1;
+        const adults = adultsInput ? adultsInput.value : 1;
+        const children = childrenInput ? childrenInput.value : 0;
         const params = new URLSearchParams(window.location.search);
         params.set('check_in',  inEl.value);
         params.set('check_out', outEl.value);
-        params.set('people',    people);
+        params.set('adults',    adults);
+        params.set('children',  children);
         window.location.search = params.toString();
     });
 }
@@ -696,32 +808,35 @@ function updateBookBtn() {
     if (barBtn) barBtn.disabled = !ready;
 }
 
-if (peopleInput) {
-    peopleInput.addEventListener('input', function () {
-        const newPeople = Math.max(1, parseInt(this.value) || 1);
-        ROOMS_NEEDED = Math.ceil(newPeople / MAX_GUESTS);
+function updateGuests() {
+    const adults = Math.max(1, parseInt(adultsInput.value) || 1);
+    const children = Math.max(0, parseInt(childrenInput.value) || 0);
+    const newPeople = adults + children;
+    ROOMS_NEEDED = Math.ceil(newPeople / MAX_GUESTS);
 
-        const barNeeded = document.getElementById('bkBarNeeded');
-        if (barNeeded) barNeeded.textContent = ROOMS_NEEDED;
+    const barNeeded = document.getElementById('bkBarNeeded');
+    if (barNeeded) barNeeded.textContent = ROOMS_NEEDED;
 
-        const lbl = document.getElementById('roomsNeededLabel');
-        if (lbl) lbl.textContent = ROOMS_NEEDED;
+    const lbl = document.getElementById('roomsNeededLabel');
+    if (lbl) lbl.textContent = ROOMS_NEEDED;
 
-        const noticeGuests = document.getElementById('noticeGuests');
-        if (noticeGuests) noticeGuests.textContent = newPeople;
+    const noticeGuests = document.getElementById('noticeGuests');
+    if (noticeGuests) noticeGuests.textContent = newPeople;
 
-        const notice = document.getElementById('multiRoomNotice');
-        if (notice) notice.style.display = ROOMS_NEEDED > 1 ? '' : 'none';
+    const notice = document.getElementById('multiRoomNotice');
+    if (notice) notice.style.display = ROOMS_NEEDED > 1 ? '' : 'none';
 
-        const hint = document.getElementById('bkHint');
-        if (hint) {
-            hint.textContent = ROOMS_NEEDED === 1
-                ? '← Vui lòng chọn một phòng bên dưới'
-                : `← Chọn đủ ${ROOMS_NEEDED} phòng bên dưới`;
-        }
-        clearRooms();
-    });
+    const hint = document.getElementById('bkHint');
+    if (hint) {
+        hint.textContent = ROOMS_NEEDED === 1
+            ? '← Vui lòng chọn một phòng bên dưới'
+            : `← Chọn đủ ${ROOMS_NEEDED} phòng bên dưới`;
+    }
+    clearRooms();
 }
+
+if (adultsInput)  adultsInput.addEventListener('input', updateGuests);
+if (childrenInput) childrenInput.addEventListener('input', updateGuests);
 
 // ═══════════════════════════════════════════════
 // 4. SUBMIT ĐẶT PHÒNG
@@ -738,22 +853,23 @@ window.submitBooking = function() {
     }
 
     const totalCap = selectedRooms.size * MAX_GUESTS;
-    const needed   = parseInt(peopleInput.value) || 1;
-    if (totalCap < needed && selectedRooms.size < ROOMS_NEEDED) {
-        const msg = `Tổng sức chứa ${totalCap} khách chưa đủ cho ${needed} khách. Vui lòng chọn thêm phòng.`;
-        const modalMsg = document.getElementById('capacityModalMsg');
-        if (modalMsg) {
-            modalMsg.innerHTML = msg;
-            new bootstrap.Modal(document.getElementById('capacityModal')).show();
-        } else {
-            alert(msg);
+    const adults = Math.max(1, parseInt(adultsInput.value) || 1);
+    const children = Math.max(0, parseInt(childrenInput.value) || 0);
+    const needed = adults + children;
+
+    if (totalCap > needed) {
+        const roomTypeName = '<?= htmlspecialchars($room['type_name']) ?>';
+        const msg = `Bạn đang đặt ${selectedRooms.size} phòng ${roomTypeName} với tổng sức chứa cho ${totalCap} người lớn. Bạn có chắc chắn muốn đặt số lượng phòng này cho ${adults} người lớn và ${children} trẻ em không?`;
+        if (!confirm(msg)) {
+            return;
         }
-        return;
     }
 
     document.getElementById('formCheckIn').value  = inEl.value;
     document.getElementById('formCheckOut').value = outEl.value;
-    document.getElementById('formPeople').value   = peopleInput.value;
+    document.getElementById('formPeople').value   = needed;
+    document.getElementById('formAdults').value   = adults;
+    document.getElementById('formChildren').value = children;
 
     const formRoomIds = document.getElementById('formRoomIds');
     formRoomIds.innerHTML = '';
@@ -811,17 +927,9 @@ if (IS_LOGGED_IN) {
         }
 
         const capEl  = document.getElementById('bkBarCapacity');
-        const needed = parseInt(peopleInput.value) || 1;
         if (capEl) {
-            if (ROOMS_NEEDED > 1) {
-                const enough = capacity >= needed;
-                capEl.className = 'bk-capacity ' + (enough ? 'ok' : 'warn');
-                capEl.innerHTML = enough
-                    ? `<i class="bi bi-check-circle-fill me-1"></i>Sức chứa: ${capacity}/${needed} khách ✓`
-                    : `<i class="bi bi-exclamation-triangle-fill me-1"></i>Sức chứa: ${capacity}/${needed} khách — cần thêm ${needed - capacity} chỗ`;
-            } else {
-                capEl.innerHTML = '';
-            }
+            capEl.className = 'bk-capacity ok';
+            capEl.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>Tổng sức chứa: ${capacity} khách`;
         }
     };
 }

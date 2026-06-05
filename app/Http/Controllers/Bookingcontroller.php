@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 /**
  * app/controllers/Bookingcontroller.php
  */
@@ -64,7 +67,9 @@ class Bookingcontroller extends Controller {
 
         $checkIn  = $_GET['check_in']  ?? '';
         $checkOut = $_GET['check_out'] ?? '';
-        $people   = (int)($_GET['people'] ?? 1);
+        $adults   = max(1, (int)($_GET['adults'] ?? ($_GET['people'] ?? 1)));
+        $children = max(0, (int)($_GET['children'] ?? 0));
+        $people   = $adults + $children;
 
         // Lấy thông tin user mới nhất từ DB (giống booking.php của PHP_KT2-master)
         if (!empty($_SESSION['user_id'])) {
@@ -103,6 +108,8 @@ class Bookingcontroller extends Controller {
             'checkIn'  => $checkIn,
             'checkOut' => $checkOut,
             'people'   => $people,
+            'adults'   => $adults,
+            'children' => $children,
             'methods'  => \App\Models\Payment::METHODS,
             'flash'    => $this->getFlash(),
         ]);
@@ -114,7 +121,9 @@ class Bookingcontroller extends Controller {
     private function store(): void {
         $checkIn  = trim($_POST['check_in']  ?? '');
         $checkOut = trim($_POST['check_out'] ?? '');
-        $people   = (int)($_POST['people']   ?? 1);
+        $adults   = max(1, (int)($_POST['adults'] ?? ($_POST['people'] ?? 1)));
+        $children = max(0, (int)($_POST['children'] ?? 0));
+        $people   = $adults + $children;
 
         $roomIds = $this->resolveRoomIds('POST');
 
@@ -150,6 +159,8 @@ class Bookingcontroller extends Controller {
                 ->setCheckIn($checkIn)
                 ->setCheckOut($checkOut)
                 ->setPeople($people)
+                ->setAdults($adults)
+                ->setChildren($children)
                 ->setRoomId($roomIds[0]);
 
             $bookingId = $this->bookingService->createBooking($builder, $roomIds);
@@ -170,6 +181,8 @@ class Bookingcontroller extends Controller {
                 'checkIn'  => $checkIn,
                 'checkOut' => $checkOut,
                 'people'   => $people,
+                'adults'   => $adults,
+                'children' => $children,
                 'methods'  => \App\Models\Payment::METHODS,
                 'old'      => $_POST,
             ]);
@@ -283,6 +296,120 @@ class Bookingcontroller extends Controller {
 
         $this->setFlash('success', 'Thanh toán thành công!');
         $this->redirectToAction('booking', 'success', ['id' => $id]);
+    }
+
+    // ─────────────────────────────────────────────
+    // XỬ LÝ CHECK OUT & GỬI EMAIL ĐÁNH GIÁ (SIMULATED FOR RECEPTIONIST)
+    // ─────────────────────────────────────────────
+    public function checkout(): void {
+        $id = (int)($_GET['id'] ?? $_POST['booking_id'] ?? 0);
+        $booking = $this->bookingModel->findById($id);
+
+        if (!$booking) {
+            $this->setFlash('error', 'Không tìm thấy đặt phòng.');
+            $this->redirectToAction('booking', 'myBookings');
+            return;
+        }
+
+        // Cập nhật trạng thái booking thành 'completed' và actual_check_out thành thời điểm hiện tại
+        \Illuminate\Support\Facades\DB::statement(
+            "UPDATE bookings SET status = 'completed', actual_check_out = NOW() WHERE id = ?",
+            [$id]
+        );
+
+        // Gửi email cảm ơn đính kèm link đánh giá phòng
+        $emailSent = $this->sendThankYouAndReviewEmail($booking);
+
+        if ($emailSent) {
+            $this->setFlash('success', 'Đã check out thành công và gửi email đánh giá đến cho khách hàng!');
+        } else {
+            $this->setFlash('success', 'Đã check out thành công (nhưng có lỗi xảy ra khi gửi email đánh giá).');
+        }
+
+        $this->redirectToAction('booking', 'myBookings');
+    }
+
+    /**
+     * Gửi email cảm ơn quý khách và đính kèm link đánh giá cho từng loại phòng đã đặt
+     */
+    private function sendThankYouAndReviewEmail(array $booking): bool {
+        $rooms = $this->bookingModel->findRoomsByBooking((int)$booking['id']);
+        if (empty($rooms)) {
+            return false;
+        }
+
+        // Gom các loại phòng duy nhất
+        $uniqueRoomTypes = [];
+        foreach ($rooms as $r) {
+            if (!empty($r['room_type_id'])) {
+                $uniqueRoomTypes[$r['room_type_id']] = $r['type_name'];
+            }
+        }
+
+        $cfg = require ROOT_PATH . '/config/config.php';
+        $mailCfg = $cfg['mail'];
+
+        $mail = new PHPMailer(true);
+        try {
+            $mail->isSMTP();
+            $mail->Host       = $mailCfg['host'];
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $mailCfg['username']; 
+            $mail->Password   = $mailCfg['password']; 
+            $mail->SMTPSecure = $mailCfg['encryption'] ?? 'tls';
+            $mail->Port       = $mailCfg['port'] ?? 587;
+
+            $mail->setFrom($mailCfg['from_email'], $mailCfg['from_name']);
+            $mail->addAddress($booking['customer_email'], $booking['customer_name']);
+
+            $mail->isHTML(true);
+            $mail->CharSet = 'UTF-8';
+            $mail->Subject = 'Cảm ơn quý khách đã sử dụng dịch vụ tại ' . $mailCfg['from_name'];
+
+            $host = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]";
+            
+            // Xây dựng danh sách các liên kết đánh giá cho từng loại phòng
+            $linksHtml = '';
+            $secret = 'hotel_review_secret_salt_12345';
+            foreach ($uniqueRoomTypes as $typeId => $typeName) {
+                $token = hash_hmac('sha256', $booking['id'] . '-' . $typeId, $secret);
+                $reviewUrl = $host . BASE_URL . '/?controller=review&action=create&booking_id=' . $booking['id'] . '&room_type_id=' . $typeId . '&token=' . $token;
+                
+                $linksHtml .= "
+                <div style='margin: 15px 0;'>
+                    <a href='{$reviewUrl}' style='display: inline-block; background-color: #C9A84C; color: #ffffff; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: bold; font-size: 14px;'>Đánh giá: " . htmlspecialchars($typeName) . "</a>
+                </div>";
+            }
+
+            $mail->Body = "
+            <html>
+            <body style='font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;'>
+                <div style='max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);'>
+                    <h2 style='color: #1e3a8a; text-align: center; margin-top: 0;'>Cảm Ơn Quý Khách</h2>
+                    <p style='color: #4b5563; line-height: 1.6;'>Kính chào quý khách <strong>" . htmlspecialchars($booking['customer_name']) . "</strong>,</p>
+                    <p style='color: #4b5563; line-height: 1.6;'>Chúng tôi xin chân thành cảm ơn quý khách đã lựa chọn và sử dụng dịch vụ lưu trú tại <strong>" . $mailCfg['from_name'] . "</strong> từ ngày <strong>" . $booking['check_in'] . "</strong> đến ngày <strong>" . $booking['check_out'] . "</strong>.</p>
+                    <p style='color: #4b5563; line-height: 1.6;'>Sự hài lòng của quý khách là niềm vinh hạnh lớn nhất của chúng tôi. Để cải thiện chất lượng dịch vụ ngày một hoàn hảo hơn, kính mong quý khách dành chút thời gian quý báu để phản hồi và đánh giá về loại phòng quý khách đã sử dụng bằng cách nhấn vào liên kết dưới đây:</p>
+                    
+                    <div style='text-align: center; margin: 25px 0;'>
+                        {$linksHtml}
+                    </div>
+                    
+                    <p style='color: #6b7280; font-size: 13px; text-align: center;'>Đường liên kết đánh giá này dành riêng cho đặt phòng của quý khách.</p>
+                    <hr style='border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;'>
+                    <p style='color: #9ca3af; font-size: 12px; text-align: center; margin-bottom: 0;'>
+                        Trân trọng,<br><strong>" . $mailCfg['from_name'] . " Team</strong>
+                    </p>
+                </div>
+            </body>
+            </html>
+            ";
+
+            $mail->send();
+            return true;
+        } catch (\Throwable $e) {
+            error_log("PHPMailer Error in Bookingcheckout: " . $e->getMessage());
+            return false;
+        }
     }
 }
 

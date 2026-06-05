@@ -17,7 +17,7 @@ class Booking {
      */
     public function findById(int $id): ?array {
         return DB::selectOne(
-            'SELECT b.*,
+            'SELECT b.*, (b.adult_count + b.child_count) AS people,
                     r.room_number, r.floor,
                     rt.type_name, rt.price AS room_price
                FROM bookings b
@@ -35,7 +35,7 @@ class Booking {
     public function findRoomsByBooking(int $bookingId): array {
         return DB::select(
             'SELECT r.id, r.room_number, r.floor,
-                    rt.type_name, rt.price
+                    rt.id AS room_type_id, rt.type_name, rt.price
                FROM booking_rooms br
                JOIN rooms r       ON r.id  = br.room_id
                JOIN room_types rt ON rt.id = r.room_type_id
@@ -46,7 +46,7 @@ class Booking {
 
     public function findByUser(int $userId): array {
         return DB::select(
-            'SELECT b.*,
+            'SELECT b.*, (b.adult_count + b.child_count) AS people,
                     GROUP_CONCAT(r.room_number ORDER BY r.room_number SEPARATOR ", ") AS room_number,
                     rt.type_name
                FROM bookings b
@@ -62,7 +62,7 @@ class Booking {
 
     public function all(): array {
         return DB::select(
-            'SELECT b.*,
+            'SELECT b.*, (b.adult_count + b.child_count) AS people,
                     GROUP_CONCAT(r.room_number ORDER BY r.room_number SEPARATOR ", ") AS room_number,
                     rt.type_name
                FROM bookings b
