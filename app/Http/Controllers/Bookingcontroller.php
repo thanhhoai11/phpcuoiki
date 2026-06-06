@@ -96,6 +96,8 @@ class Bookingcontroller extends Controller {
         }
 
 
+        $priceSettings = (new \App\Models\PriceSetting())->getActive();
+
         $this->render('booking/create', [
             'rooms'    => $rooms,
             'room'     => $rooms[0],
@@ -105,6 +107,7 @@ class Bookingcontroller extends Controller {
             'people'   => $people,
             'methods'  => \App\Models\Payment::METHODS,
             'flash'    => $this->getFlash(),
+            'priceSettings' => $priceSettings,
         ]);
     }
 
@@ -162,6 +165,7 @@ class Bookingcontroller extends Controller {
                 $r = $this->roomModel->findById($id);
                 if ($r) $rooms[] = $r;
             }
+            $priceSettings = (new \App\Models\PriceSetting())->getActive();
             $this->render('booking/create', [
                 'rooms'    => $rooms,
                 'room'     => $rooms[0] ?? null,
@@ -172,6 +176,7 @@ class Bookingcontroller extends Controller {
                 'people'   => $people,
                 'methods'  => \App\Models\Payment::METHODS,
                 'old'      => $_POST,
+                'priceSettings' => $priceSettings,
             ]);
         }
     }

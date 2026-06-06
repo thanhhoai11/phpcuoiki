@@ -13,6 +13,9 @@ class BookingService {
             $roomIds = [$data['room_id']];
         }
 
+        // Lấy tất cả cài đặt giá đang kích hoạt
+        $priceSettings = DB::select("SELECT * FROM price_settings WHERE status = 1");
+
         $totalPrice = 0;
         foreach ($roomIds as $rid) {
             $roomInfo = DB::selectOne(
@@ -23,9 +26,44 @@ class BookingService {
                 [$rid]
             );
             if (!$roomInfo) {
-                throw new \RuntimeException("Ph�ng ID $rid kh�ng t?n t?i.");
+                throw new \RuntimeException("Phòng ID $rid không tồn tại.");
             }
-            $totalPrice += (float)$roomInfo['price'] * $data['nights'];
+            
+            // Xử lý type cast cho stdClass hoặc array tùy DB driver
+            $basePrice = is_array($roomInfo) ? (float)$roomInfo['price'] : (float)$roomInfo->price;
+            $roomTotal = 0;
+
+            // Tính tiền từng đêm
+            $checkInDate = new \DateTime($data['check_in']);
+            $checkOutDate = new \DateTime($data['check_out']);
+            
+            $currentDate = clone $checkInDate;
+            while ($currentDate < $checkOutDate) {
+                $dateString = $currentDate->format('Y-m-d');
+                $nightPrice = $basePrice;
+
+                // Áp dụng phụ thu nếu ngày hiện tại nằm trong dịp lễ
+                foreach ($priceSettings as $setting) {
+                    $sd = is_array($setting) ? $setting['start_date'] : $setting->start_date;
+                    $ed = is_array($setting) ? $setting['end_date'] : $setting->end_date;
+                    $at = is_array($setting) ? $setting['adjustment_type'] : $setting->adjustment_type;
+                    $av = is_array($setting) ? $setting['adjustment_value'] : $setting->adjustment_value;
+
+                    if ($dateString >= $sd && $dateString <= $ed) {
+                        if ($at === 'percent') {
+                            $nightPrice += $basePrice * ((float)$av / 100);
+                        } else {
+                            $nightPrice += (float)$av;
+                        }
+                        break; // Chỉ áp dụng 1 mức phụ thu (đã chặn trùng lặp ở Controller)
+                    }
+                }
+
+                $roomTotal += $nightPrice;
+                $currentDate->modify('+1 day');
+            }
+
+            $totalPrice += $roomTotal;
         }
 
         DB::statement('INSERT INTO bookings

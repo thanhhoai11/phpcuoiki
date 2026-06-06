@@ -24,6 +24,11 @@ class User {
         return DB::selectOne("SELECT * FROM users WHERE username = ?", [$username]);
     }
 
+    public function countCustomers(): int {
+        $r = DB::selectOne("SELECT COUNT(*) AS cnt FROM users WHERE role = 'customer' OR role IS NULL");
+        return (int)($r['cnt'] ?? 0);
+    }
+
     public function create(array $data): int {
         DB::statement("INSERT INTO users (username, fullname, email, phone, password, verified, otp_code, created_at)
                 VALUES (?, ?, ?, ?, ?, 0, ?, NOW())",

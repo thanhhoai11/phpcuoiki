@@ -22,6 +22,7 @@ class Controller extends BaseController
 
     protected function redirect(string $url)
     {
+        session()->save();
         header('Location: ' . $url);
         exit;
     }
@@ -35,6 +36,9 @@ class Controller extends BaseController
 
     protected function setFlash(string $type, string $message)
     {
+        // Xóa flash cũ để tránh hiển thị thông báo lỗi cũ sau khi thành công
+        session()->forget('success');
+        session()->forget('error');
         session()->flash($type, $message);
     }
 
@@ -47,15 +51,38 @@ class Controller extends BaseController
 
     protected function requireLogin()
     {
-        if (!session()->has('user')) {
+        if (!session()->has('user') && empty($_SESSION['user'])) {
             session(['redirect_after_login' => request()->fullUrl()]);
+            $_SESSION['redirect_after_login'] = request()->fullUrl();
             $this->redirectToAction('auth', 'login');
         }
     }
 
     protected function currentUser()
     {
-        return session('user');
+        return session('user') ?? ($_SESSION['user'] ?? null);
+    }
+
+    protected function requireRole($roles)
+    {
+        $this->requireLogin();
+        
+        $user = $this->currentUser();
+        // Since $_SESSION is heavily used in Authcontroller, ensure we check it if session('user') is empty
+        if (!$user && isset($_SESSION['user'])) {
+            $user = $_SESSION['user'];
+        }
+
+        $userRole = $user['role'] ?? 'customer';
+        
+        if (is_string($roles)) {
+            $roles = [$roles];
+        }
+        
+        if (!in_array($userRole, $roles)) {
+            $this->setFlash('error', 'Bạn không có quyền truy cập trang này.');
+            $this->redirectToAction('home', 'index');
+        }
     }
 }
 

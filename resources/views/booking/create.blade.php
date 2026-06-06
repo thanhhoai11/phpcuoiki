@@ -270,7 +270,7 @@ checkOutEl.addEventListener('change', () => {
 
 if (checkInEl.value) syncCheckOutMin();
 
-// ── 2. Tính tổng tiền động ──────────────────────────
+// ── 2. Tính tổng tiền động ────────────────────────
 function calcTotal() {
     const ci = checkInEl.value;
     const co = checkOutEl.value;
@@ -283,11 +283,45 @@ function calcTotal() {
     const nights = Math.round((new Date(co) - new Date(ci)) / 86400000);
     if (nights <= 0) { box.classList.add('d-none'); return; }
 
-    const total = nights * totalPerNight;
-    document.getElementById('nightsText').textContent =
-        nights + ' đêm × ' + totalPerNight.toLocaleString('vi-VN') + ' VNĐ/đêm';
-    document.getElementById('totalText').textContent =
-        'Tổng: ' + total.toLocaleString('vi-VN') + ' VNĐ';
+    let total = 0;
+    let baseTotal = 0;
+    const priceSettings = <?= json_encode($priceSettings ?? []) ?>;
+
+    for (let r of pricesPerNight) {
+        let roomTotal = 0;
+        let currentDate = new Date(ci);
+        let endDate = new Date(co);
+        
+        while (currentDate < endDate) {
+            let nightPrice = r;
+            let dateStr = currentDate.toISOString().split('T')[0];
+            
+            for (let setting of priceSettings) {
+                if (dateStr >= setting.start_date && dateStr <= setting.end_date) {
+                    if (setting.adjustment_type === 'percent') {
+                        nightPrice += r * (setting.adjustment_value / 100);
+                    } else {
+                        nightPrice += parseFloat(setting.adjustment_value);
+                    }
+                    break;
+                }
+            }
+            roomTotal += nightPrice;
+            baseTotal += r;
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        total += roomTotal;
+    }
+
+    const surcharge = total - baseTotal;
+    
+    let text = nights + ' đêm × ' + totalPerNight.toLocaleString('vi-VN') + ' VNĐ/đêm';
+    if (surcharge > 0) {
+        text += ' (Phụ thu: ' + surcharge.toLocaleString('vi-VN') + ' VNĐ)';
+    }
+
+    document.getElementById('nightsText').textContent = text;
+    document.getElementById('totalText').textContent = 'Tổng: ' + total.toLocaleString('vi-VN') + ' VNĐ';
     box.classList.remove('d-none');
 }
 

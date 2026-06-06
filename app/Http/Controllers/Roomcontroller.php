@@ -40,6 +40,42 @@ class Roomcontroller extends Controller {
             return;
         }
 
+        if ($checkIn && $checkOut) {
+            $priceSettings = (new \App\Models\PriceSetting())->getActive();
+            $checkInDate = new \DateTime($checkIn);
+            $checkOutDate = new \DateTime($checkOut);
+            $nights = max(1, (int)$checkInDate->diff($checkOutDate)->format('%a'));
+
+            $basePrice = (float)$room['price'];
+            $totalPriceForStay = 0;
+            
+            $currentDate = clone $checkInDate;
+            while ($currentDate < $checkOutDate) {
+                $dateString = $currentDate->format('Y-m-d');
+                $nightPrice = $basePrice;
+                
+                foreach ($priceSettings as $setting) {
+                    $sd = is_array($setting) ? $setting['start_date'] : $setting->start_date;
+                    $ed = is_array($setting) ? $setting['end_date'] : $setting->end_date;
+                    $at = is_array($setting) ? $setting['adjustment_type'] : $setting->adjustment_type;
+                    $av = is_array($setting) ? $setting['adjustment_value'] : $setting->adjustment_value;
+
+                    if ($dateString >= $sd && $dateString <= $ed) {
+                        if ($at === 'percent') {
+                            $nightPrice += $basePrice * ((float)$av / 100);
+                        } else {
+                            $nightPrice += (float)$av;
+                        }
+                        break;
+                    }
+                }
+                $totalPriceForStay += $nightPrice;
+                $currentDate->modify('+1 day');
+            }
+            
+            $room['price'] = $totalPriceForStay / $nights;
+        }
+
         $allRoomsOfType = $this->roomModel->getRoomsByType($typeId, $checkIn, $checkOut);
 
         $bookedRoomIds = array_column(
@@ -77,8 +113,44 @@ class Roomcontroller extends Controller {
         if ($checkIn && $checkOut) {
             $searched  = true;
             $roomTypes = $this->roomModel->searchAvailableGroupedByType($checkIn, $checkOut);
-            foreach ($roomTypes as $rt) {
+            
+            $priceSettings = (new \App\Models\PriceSetting())->getActive();
+            $checkInDate = new \DateTime($checkIn);
+            $checkOutDate = new \DateTime($checkOut);
+            $nights = max(1, (int)$checkInDate->diff($checkOutDate)->format('%a'));
+
+            foreach ($roomTypes as &$rt) {
                 $totalAvailable += count($rt['available_rooms']);
+
+                $basePrice = (float)$rt['price'];
+                $totalPriceForStay = 0;
+                
+                $currentDate = clone $checkInDate;
+                while ($currentDate < $checkOutDate) {
+                    $dateString = $currentDate->format('Y-m-d');
+                    $nightPrice = $basePrice;
+                    
+                    foreach ($priceSettings as $setting) {
+                        $sd = is_array($setting) ? $setting['start_date'] : $setting->start_date;
+                        $ed = is_array($setting) ? $setting['end_date'] : $setting->end_date;
+                        $at = is_array($setting) ? $setting['adjustment_type'] : $setting->adjustment_type;
+                        $av = is_array($setting) ? $setting['adjustment_value'] : $setting->adjustment_value;
+
+                        if ($dateString >= $sd && $dateString <= $ed) {
+                            if ($at === 'percent') {
+                                $nightPrice += $basePrice * ((float)$av / 100);
+                            } else {
+                                $nightPrice += (float)$av;
+                            }
+                            break;
+                        }
+                    }
+                    $totalPriceForStay += $nightPrice;
+                    $currentDate->modify('+1 day');
+                }
+                
+                // Cập nhật giá hiển thị là giá trung bình mỗi đêm
+                $rt['price'] = $totalPriceForStay / $nights;
             }
         }
 

@@ -31,58 +31,111 @@ class Authcontroller extends Controller {
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $email = trim($_POST['email'] ?? '');
+            $role     = trim($_POST['role'] ?? 'customer');
             $password = $_POST['password'] ?? '';
 
-            if (empty($email) || empty($password)) {
-                $this->setFlash('error', 'Vui lòng nhập đầy đủ thông tin!');
-            } else {
-                $user = $this->userModel->findByEmail($email);
-                if ($user) {
-                    // Kiểm tra xác thực OTP
-                    if ($user['verified'] == 0) {
-                        $_SESSION['verify_email'] = $email;
-                        $this->setFlash('error', 'Tài khoản của bạn chưa được xác thực. Vui lòng nhập mã OTP để kích hoạt!');
-                        $this->redirectToAction('auth', 'verifyAccount');
-                        return;
+            // Staff login: dùng username
+            if ($role === 'staff') {
+                $username = trim($_POST['username'] ?? '');
+                if (empty($username) || empty($password)) {
+                    $this->setFlash('error', 'Vui lòng nhập đầy đủ thông tin!');
+                } else {
+                    $user = $this->userModel->findByUsername($username);
+                    if ($user) {
+                        $validPassword = false;
+                        if (password_verify($password, $user['password'])) {
+                            $validPassword = true;
+                        } elseif (md5($password) === $user['password']) {
+                            $validPassword = true;
+                        } elseif ($password === $user['password']) {
+                            $validPassword = true;
+                        }
+
+                        if ($validPassword) {
+                            $_SESSION['user_id'] = $user['id'];
+                            $_SESSION['user'] = $user;
+                            $this->setFlash('success', 'Đăng nhập thành công!');
+
+                            $userRole = $user['role'] ?? 'customer';
+                            if ($userRole === 'admin') {
+                                $this->redirectToAction('admin', 'dashboard');
+                                return;
+                            } elseif ($userRole === 'receptionist') {
+                                $this->redirectToAction('receptionist', 'dashboard');
+                                return;
+                            }
+                            $this->redirectToAction('home', 'index');
+                            return;
+                        } else {
+                            $this->setFlash('error', 'Sai mật khẩu!');
+                        }
+                    } else {
+                        $this->setFlash('error', 'Tài khoản không tồn tại!');
                     }
+                }
+            }
+            // Customer login: dùng email (giữ nguyên logic cũ)
+            else {
+                $email = trim($_POST['email'] ?? '');
 
-                    $validPassword = false;
-                    // Hỗ trợ cả 3 định dạng mật khẩu như file cũ (Bcrypt, MD5, Plaintext)
-                    if (password_verify($password, $user['password'])) {
-                        $validPassword = true;
-                    } elseif (md5($password) === $user['password']) {
-                        $validPassword = true;
-                    } elseif ($password === $user['password']) {
-                        $validPassword = true;
-                    }
-
-                    if ($validPassword) {
-                        $_SESSION['user_id'] = $user['id'];
-                        $_SESSION['user'] = $user;
-                        $this->setFlash('success', 'Đăng nhập thành công!');
-
-                        // Ưu tiên quay lại luồng đặt phòng nếu có cờ đánh dấu
-                        if (!empty($_SESSION['redirect_to_booking'])) {
-                            unset($_SESSION['redirect_to_booking']);
-                            $_SESSION['restore_booking'] = true; // Cờ dự phòng cho BookingController
-                            $this->redirectToAction('booking', 'create', ['restore' => '1']);
+                if (empty($email) || empty($password)) {
+                    $this->setFlash('error', 'Vui lòng nhập đầy đủ thông tin!');
+                } else {
+                    $user = $this->userModel->findByEmail($email);
+                    if ($user) {
+                        // Kiểm tra xác thực OTP
+                        if ($user['verified'] == 0) {
+                            $_SESSION['verify_email'] = $email;
+                            $this->setFlash('error', 'Tài khoản của bạn chưa được xác thực. Vui lòng nhập mã OTP để kích hoạt!');
+                            $this->redirectToAction('auth', 'verifyAccount');
                             return;
                         }
 
-                        $redirect = $_SESSION['redirect_after_login'] ?? null;
-                        unset($_SESSION['redirect_after_login']);
-                        if ($redirect) {
-                            header('Location: ' . $redirect);
-                            exit;
+                        $validPassword = false;
+                        if (password_verify($password, $user['password'])) {
+                            $validPassword = true;
+                        } elseif (md5($password) === $user['password']) {
+                            $validPassword = true;
+                        } elseif ($password === $user['password']) {
+                            $validPassword = true;
                         }
-                        $this->redirectToAction('home', 'index');
-                        return;
+
+                        if ($validPassword) {
+                            $_SESSION['user_id'] = $user['id'];
+                            $_SESSION['user'] = $user;
+                            $this->setFlash('success', 'Đăng nhập thành công!');
+
+                            // Ưu tiên quay lại luồng đặt phòng nếu có cờ đánh dấu
+                            if (!empty($_SESSION['redirect_to_booking'])) {
+                                unset($_SESSION['redirect_to_booking']);
+                                $_SESSION['restore_booking'] = true;
+                                $this->redirectToAction('booking', 'create', ['restore' => '1']);
+                                return;
+                            }
+
+                            $userRole = $user['role'] ?? 'customer';
+                            if ($userRole === 'admin') {
+                                $this->redirectToAction('admin', 'dashboard');
+                                return;
+                            } elseif ($userRole === 'receptionist') {
+                                $this->redirectToAction('receptionist', 'dashboard');
+                                return;
+                            }
+
+                            $redirect = $_SESSION['redirect_after_login'] ?? null;
+                            unset($_SESSION['redirect_after_login']);
+                            if ($redirect) {
+                                header('Location: ' . $redirect);
+                                exit;
+                            }
+                            $this->redirectToAction('home', 'index');
+                            return;
+                        } else {
+                            $this->setFlash('error', 'Sai mật khẩu!');
+                        }
                     } else {
-                        $this->setFlash('error', 'Sai mật khẩu!');
+                        $this->setFlash('error', 'Tài khoản không tồn tại!');
                     }
-                } else {
-                    $this->setFlash('error', 'Tài khoản không tồn tại!');
                 }
             }
             // Nếu lỗi, load lại view với flash message
