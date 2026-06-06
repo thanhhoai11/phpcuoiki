@@ -30,9 +30,9 @@ class BookingService {
 
         DB::statement('INSERT INTO bookings
                (user_id, customer_name, customer_email, customer_phone,
-                check_in, check_out, people, total_price, payment_method,
+                check_in, check_out, adult_count, child_count, total_price, payment_method,
                 payment_status, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, "pending", "pending")',
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "pending", "pending")',
             [
                 $data['user_id']        ?? null,
                 $data['customer_name'],
@@ -41,6 +41,7 @@ class BookingService {
                 $data['check_in'],
                 $data['check_out'],
                 $data['people'],
+                0,
                 $totalPrice,
                 null
             ]
@@ -52,8 +53,16 @@ class BookingService {
                 'INSERT INTO booking_rooms (booking_id, room_id) VALUES (?, ?)',
                 [$bookingId, $rid]
             );
+            // Chỉ tự động chuyển trạng thái phòng thành 'soon_to_checkin' nếu ngày check-in là HÔM NAY
+            if ($data['check_in'] === date('Y-m-d')) {
+                DB::statement(
+                    'UPDATE rooms SET status = "soon_to_checkin" WHERE id = ?',
+                    [$rid]
+                );
+            }
         }
 
         return $bookingId;
     }
 }
+

@@ -76,6 +76,14 @@ class Booking {
 
     public function updateStatus(int $id, string $status): void {
         DB::statement('UPDATE bookings SET status = ? WHERE id = ?', [$status, $id]);
+        
+        // Neu huy/tu choi booking, tu dong tra trang thai phong ve "available"
+        if (in_array($status, ['cancelled', 'rejected'])) {
+            $rooms = DB::select('SELECT room_id FROM booking_rooms WHERE booking_id = ?', [$id]);
+            foreach ($rooms as $r) {
+                DB::statement('UPDATE rooms SET status = "available" WHERE id = ?', [$r['room_id']]);
+            }
+        }
     }
 
     public function updatePaymentStatus(int $id, string $method, string $status = 'paid'): void {
@@ -91,6 +99,12 @@ class Booking {
         if ($booking['status'] !== 'pending') return false;
 
         DB::statement('UPDATE bookings SET status = "cancelled" WHERE id = ?', [$id]);
+        
+        // Giai phong phong ve "available" khi huy dat
+        $rooms = DB::select('SELECT room_id FROM booking_rooms WHERE booking_id = ?', [$id]);
+        foreach ($rooms as $r) {
+            DB::statement('UPDATE rooms SET status = "available" WHERE id = ?', [$r['room_id']]);
+        }
         return true;
     }
 

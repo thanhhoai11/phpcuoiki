@@ -6,7 +6,7 @@
 return [
     // ── Database ──────────────────────────────────
     'db_host' => 'localhost',
-    'db_name' => 'qlkhachsan2',
+    'db_name' => 'quanlykhachsan',
     'db_user' => 'root',
     'db_pass' => '',
 
